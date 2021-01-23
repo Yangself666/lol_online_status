@@ -79,6 +79,7 @@ public class ServiceImpl implements IService {
                 for (Map<String, Object> map : gamers) {
                     //遍历需要检测的玩家
                     if ((Boolean) map.get("isOnline")) {
+                        map.put("isOnline", false);
                         String msg = (String)map.get("offlineMessage");
                         sendMessage(msg);
                     }
