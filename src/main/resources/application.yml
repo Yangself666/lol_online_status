@@ -1,0 +1,8 @@
+server:
+  port: 20380
+
+spring:
+  datasource:
+    username: root
+    password: Yangself549_
+    url: jdbc:mysql://yangself.cn:10306/leigod_utils
