@@ -2,6 +2,7 @@ package cn.yangself.lol.service.impl;
 
 import cn.hutool.core.date.DateUnit;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpUtil;
 import cn.yangself.lol.service.IService;
@@ -127,7 +128,7 @@ public class ServiceImpl implements IService {
     private List<String> queryStatus(){
         List<String> onlineList = new ArrayList<>();
         try {
-            if (TGP_TICKET.length() == 0) {
+            if (StrUtil.isBlank(TGP_TICKET)) {
                 System.out.println("未设置token");
                 sendMessage("Token未设置！");
                 return null;
@@ -178,7 +179,7 @@ public class ServiceImpl implements IService {
      */
     private Boolean queryMyStatus(){
         try {
-            if (TGP_TICKET.length() == 0) {
+            if (StrUtil.isBlank(TGP_TICKET)) {
                 System.out.println("未设置token");
                 return null;
             }
