@@ -27,4 +27,16 @@ public interface IService {
      * @param content
      */
     void sendMessage(String content);
+
+    /**
+     * 标记是否发送过钉钉消息
+     * @param notice
+     */
+    public void setNotice(Boolean notice);
+
+    /**
+     * token失效标记
+     * @param tokenNotice
+     */
+    public void setTokenNotice(Boolean tokenNotice);
 }

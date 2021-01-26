@@ -28,11 +28,23 @@ public class ServiceImpl implements IService {
     private static final String DING_TALK_URL = "https://oapi.dingtalk.com/robot/send?access_token=25bdbad112a8b8c9788aebf6b76dce33a9d4ca6b2fadaa69bbdbd21d35331f4c";
     private static final String COOKIE_TEMPLATE = "tgp_ticket=${tgp_ticket}; channel_number=ios; skey=MiXhJzcQxO; machine_type=iPhone; client_type=602; platform=qq; account=3569762428; app_id=10001; mac=ADF0FD0D-8117-4540-9B3F-84B0AD133A36; app_version=51001; tgp_id=215863828";
     private String TGP_TICKET = "";
+    private Boolean isNotice = false;
+    private Boolean isTokenNotice = false;
     private Boolean ENABLE = true;
 
     @Override
     public void setToken(String token) {
         this.TGP_TICKET = token;
+    }
+
+    @Override
+    public void setNotice(Boolean notice) {
+        isNotice = notice;
+    }
+
+    @Override
+    public void setTokenNotice(Boolean tokenNotice) {
+        isTokenNotice = tokenNotice;
     }
 
     @Override
@@ -131,7 +143,11 @@ public class ServiceImpl implements IService {
         try {
             if (StrUtil.isBlank(TGP_TICKET)) {
                 System.out.println("未设置token");
-                sendMessage("Token未设置！");
+                if (!this.isNotice){
+                    System.out.println("-> 没发过消息，发送消息 <-");
+                    this.isNotice = true;
+                    sendMessage("Token未设置！");
+                }
                 return null;
             }
             String cookie = COOKIE_TEMPLATE.replace("${tgp_ticket}", TGP_TICKET);
@@ -148,20 +164,28 @@ public class ServiceImpl implements IService {
                     .body();
             System.out.println("result = " + result);
             JSONObject jsonObject = JSON.parseObject(result);
-            if (jsonObject.getInteger("code") != 0) {
-                System.out.println(jsonObject.getString("msg"));
-                sendMessage(jsonObject.getString("msg"));
+            if (jsonObject.getInteger("code") == -80005) {
+                System.out.println("token失效");
+                if (!this.isNotice){
+                    System.out.println("-> 没发过消息，发送消息 <-");
+                    this.isNotice = true;
+                    sendMessage("Token已失效！");
+                }
                 return null;
-            } else {
+            } else if (jsonObject.getInteger("code") == 0){
                 JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("online_state_infos");
-                for (int i = 0; i < jsonArray.size(); i++) {
-                    JSONObject status = jsonArray.getJSONObject(i);
-                    String id = status.getString("friend_uid");
-                    Integer state = status.getInteger("state");
-                    if (state == 1){
-                        onlineList.add(id);
+                if(jsonArray != null){
+                    for (int i = 0; i < jsonArray.size(); i++) {
+                        JSONObject status = jsonArray.getJSONObject(i);
+                        String id = status.getString("friend_uid");
+                        Integer state = status.getInteger("state");
+                        if (state == 1){
+                            onlineList.add(id);
+                        }
                     }
                 }
+            }else{
+                System.out.println("---> " + jsonObject.getString("msg"));
             }
 
             if(queryMyStatus()){
@@ -202,7 +226,11 @@ public class ServiceImpl implements IService {
                 System.out.println(jsonObject.getString("msg"));
                 return null;
             } else {
-                Integer status = jsonObject.getJSONObject("data").getJSONObject("online_status").getInteger("status");
+                JSONObject online_status = jsonObject.getJSONObject("data").getJSONObject("online_status");
+                if (online_status == null){
+                    return false;
+                }
+                Integer status = online_status.getInteger("status");
                 if (status == 0) {
                     return false;
                 } else if (status == 2){

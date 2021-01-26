@@ -37,13 +37,31 @@ public class LolController {
         if (!ReUtil.isMatch("^[A-Z0-9]{256}$",token)){
             result.put("code", 202);
             result.put("msg", "请求成功！");
-            result.put("reuslt", "Token格式不正确！");
+            result.put("result", "Token格式不正确！");
             return result;
         }
         service.setToken(token);
+        service.setNotice(false);
         result.put("code", 200);
         result.put("msg", "请求成功！");
-        result.put("reuslt", "Token已成功设置！");
+        result.put("result", "Token已成功设置！");
+        return result;
+    }
+
+    @PostMapping("/sendMessage")
+    public Map<String,Object> sendMessage(@RequestBody Map<String,String> sendMap){
+        Map<String,Object> result = new HashMap<>();
+        if (StrUtil.isBlank(sendMap.get("content"))){
+            result.put("code", 201);
+            result.put("msg", "请求成功！");
+            result.put("result", "参数content为空！");
+            return result;
+        }
+        String content = sendMap.get("content");
+        service.sendMessage(content);
+        result.put("code", 200);
+        result.put("msg", "请求成功！");
+        result.put("result", "消息发送成功！");
         return result;
     }
 
