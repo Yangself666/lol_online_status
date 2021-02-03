@@ -6,3 +6,9 @@ spring:
     username: root
     password: Yangself549_
     url: jdbc:mysql://yangself.cn:10306/leigod_utils
+  thymeleaf:
+    cache: false                   # 这个开发配置为false，避免改了模板还要重启服务器
+    check-template-location: true  #检查模板位置，可不用配置
+    encoding: utf-8                #编码字符集，默认为utf-8，可不用配置
+    servlet:
+      content-type: text/html
