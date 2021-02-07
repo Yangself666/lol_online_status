@@ -1,9 +1,8 @@
-package cn.yangself.lol.service.controller;
+package cn.yangself.lol.controller;
 
 import cn.hutool.core.util.ReUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.yangself.lol.service.IService;
-import cn.yangself.lol.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;

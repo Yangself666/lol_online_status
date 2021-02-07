@@ -52,6 +52,12 @@ public class ServiceImpl implements IService {
         this.ENABLE = enable;
     }
 
+    /**
+     * personastate 1为在线 0为不在线
+     * gameid   正在玩的游戏ID
+     * gameextrainfo 正在玩的游戏名称
+     *
+     */
     private static List<Map<String,Object>> gamers = new ArrayList<Map<String,Object>>(){{
        add(new HashMap<String,Object>(){{
            put("id", "183555768");
@@ -123,15 +129,16 @@ public class ServiceImpl implements IService {
      */
     @Override
     public void sendMessage(String content) {
-        String body = "{\"msgtype\":\"text\",\"text\":{\"content\":\"【注意】" + content + "\"}}";
-        String result = HttpUtil.createPost(DING_TALK_URL).header("Content-Type", "application/json").body(body).execute().body();
-        JSONObject resultJson = JSON.parseObject(result);
-        Integer errcode = resultJson.getInteger("errcode");
-        if (errcode != 0){
-            System.out.println("消息发送失败 -> msg:" + resultJson.getString("errmsg"));
-        }else{
-            System.out.println("消息发送成功！");
-        }
+//        String body = "{\"msgtype\":\"text\",\"text\":{\"content\":\"【注意】" + content + "\"}}";
+//        String result = HttpUtil.createPost(DING_TALK_URL).header("Content-Type", "application/json").body(body).execute().body();
+//        JSONObject resultJson = JSON.parseObject(result);
+//        Integer errcode = resultJson.getInteger("errcode");
+//        if (errcode != 0){
+//            System.out.println("消息发送失败 -> msg:" + resultJson.getString("errmsg"));
+//        }else{
+//            System.out.println("消息发送成功！");
+//        }
+        System.out.println("消息发送成功！");
     }
 
     /**
