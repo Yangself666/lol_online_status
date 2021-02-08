@@ -1,5 +1,8 @@
 package cn.yangself.lol.service;
 
 
-public interface ISteamService {
+import cn.yangself.lol.entity.Steam;
+import com.baomidou.mybatisplus.extension.service.IService;
+
+public interface ISteamService extends IService<Steam> {
 }

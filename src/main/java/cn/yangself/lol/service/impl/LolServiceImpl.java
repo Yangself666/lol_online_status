@@ -4,14 +4,17 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpUtil;
 import cn.yangself.lol.entity.Lol;
+import cn.yangself.lol.entity.Steam;
 import cn.yangself.lol.entity.SystemConfig;
 import cn.yangself.lol.mapper.LolMapper;
+import cn.yangself.lol.service.ISteamService;
 import cn.yangself.lol.service.ISystemConfigService;
 import cn.yangself.lol.service.ILolService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +32,7 @@ import java.util.Map;
 
 @Service
 @Slf4j
-public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolService {
+public class LolServiceImpl extends ServiceImpl<LolMapper, Lol> implements ILolService {
 
     private String MY_WEGAME_STATUS_URL = "";
     private String DING_TALK_URL = "";
@@ -39,45 +42,17 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
 
     //配置项的service
     private ISystemConfigService configService;
+    private ISteamService steamService;
 
     @Autowired
     public void setConfigService(ISystemConfigService configService) {
         this.configService = configService;
     }
 
-    /**
-     * personastate 1为在线 0为不在线
-     * gameid   正在玩的游戏ID
-     * gameextrainfo 正在玩的游戏名称
-     *
-     */
-    private static List<Map<String,Object>> gamers = new ArrayList<Map<String,Object>>(){{
-       add(new HashMap<String,Object>(){{
-           put("id", "183555768");
-           put("isOnline",false);
-           put("onlineMessage","法外狂徒高忠诚已上线！请注意！");
-           put("offlineMessage", "法外狂徒高忠诚下线啦！！！");
-       }});
-       add(new HashMap<String,Object>(){{
-           put("id", "43550649");
-           put("isOnline",false);
-           put("onlineMessage","韩嘉旺在线执法！");
-           put("offlineMessage", "执法者韩嘉旺已下线！");
-       }});
-       add(new HashMap<String,Object>(){{
-           put("id", "55070153");
-           put("isOnline",false);
-           put("onlineMessage","纳什男爵已刷新！");
-           put("offlineMessage", "纳什男爵已被敌方击杀！");
-       }});
-       add(new HashMap<String,Object>(){{
-           put("id", "215863828");
-           put("isOnline",false);
-           put("onlineMessage","DeBuff加成已开启！");
-           put("offlineMessage", "DeBuff消失！");
-       }});
-
-    }};
+    @Autowired
+    public void setSteamService(ISteamService steamService) {
+        this.steamService = steamService;
+    }
 
     @Scheduled(cron = "0 * * * * ?")
     @Override
@@ -109,7 +84,7 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
         log.info(DateUtil.now() + " - 运行状态 -> " + enable);
         log.info("TGP_TICKET -> " + TGP_TICKET);
 
-        if(enable) {
+        if (enable) {
             //获取WeGame在线好友列表
             List<String> list = queryStatus();
             List<Lol> gamers = this.list();
@@ -141,32 +116,88 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
                     }
                 }
             }
+            List<Steam> steamList = steamGetPlayerSummaries();
+            List<Steam> previousList = steamService.list();
+            if (steamList != null){
+                //遍历旧的状态信息
+                for (Steam steam: previousList) {
+                    // 遍历获取到的Steam用户状态
+                    for (Steam steamNew: steamList) {
+                        if (steamNew.getAccountId().equals(steam.getAccountId())){
+                            //匹配到了相同的账号
+
+                            //查看是否在线
+                            if (steamNew.getOnlineStatus() != steam.getOnlineStatus() ){
+                                //与之前的在线状态不一样
+                                if (steamNew.getOnlineStatus()){
+                                    //说明上线
+                                    sendMessage(steam.getOnlineMessage());
+                                }else{
+                                    //说明下线
+                                    sendMessage(steam.getOfflineMessage());
+                                }
+                            }
+
+                            // 查看是否玩游戏
+                            // 之前没有玩游戏
+                            if(StrUtil.isBlank(steam.getPlayingGame())){
+                                // 现在玩游戏了
+                                if (StrUtil.isNotBlank(steamNew.getPlayingGame())){
+                                    sendMessage(steam.getRealName() + "正在玩" + steamNew.getPlayingGame());
+                                }
+                            }else{
+                                // 之前玩游戏了并且现在也在玩游戏
+                                if (StrUtil.isNotBlank(steamNew.getPlayingGame())){
+                                    // 如果玩的游戏不相同
+                                    if (!steamNew.getPlayingGame().equals(steam.getPlayingGame())){
+                                        sendMessage(steam.getRealName() + "不玩" + steam.getPlayingGame() + "了，正在玩" + steamNew.getPlayingGame());
+                                    }
+                                }else{
+                                    // 之前玩游戏现在不玩游戏了
+                                    sendMessage(steam.getRealName() + "不玩" + steam.getPlayingGame() + "了");
+                                }
+                            }
+
+                            //更新入数据库
+                            steam.setPlayerName(steamNew.getPlayerName());
+                            steam.setOnlineStatus(steamNew.getOnlineStatus());
+                            steam.setPlayingGame(steamNew.getPlayingGame());
+                            steamService.updateById(steam);
+
+                            //找到相同的，处理完成就退出这个小循环
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
     /**
      * 发送钉钉消息
+     *
      * @param content
      */
     @Override
     public void sendMessage(String content) {
-//        String body = "{\"msgtype\":\"text\",\"text\":{\"content\":\"【注意】" + content + "\"}}";
-//        String result = HttpUtil.createPost(DING_TALK_URL).header("Content-Type", "application/json").body(body).execute().body();
-//        JSONObject resultJson = JSON.parseObject(result);
-//        Integer errcode = resultJson.getInteger("errcode");
-//        if (errcode != 0){
-//            System.out.println("消息发送失败 -> msg:" + resultJson.getString("errmsg"));
-//        }else{
-//            System.out.println("消息发送成功！");
-//        }
-        log.info("消息发送成功！");
+       String body = "{\"msgtype\":\"text\",\"text\":{\"content\":\"【注意】" + content + "\"}}";
+       String result = HttpUtil.createPost(DING_TALK_URL).header("Content-Type", "application/json").body(body).execute().body();
+       JSONObject resultJson = JSON.parseObject(result);
+       Integer errcode = resultJson.getInteger("errcode");
+       if (errcode != 0){
+           System.out.println("消息发送失败 -> msg:" + resultJson.getString("errmsg"));
+       }else{
+           System.out.println("消息发送成功！");
+       }
+//         log.info("发送消息 -> " + content);
     }
 
     /**
      * 查询好友是否在线
+     *
      * @return
      */
-    private List<String> queryStatus(){
+    private List<String> queryStatus() {
         List<String> onlineList = new ArrayList<>();
 
         //获取是否提醒过
@@ -177,7 +208,7 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
             if (StrUtil.isBlank(TGP_TICKET)) {
                 log.warn("未设置token");
                 //如果没有提醒过
-                if (!isNotice){
+                if (!isNotice) {
                     log.info("-> 没发过消息，发送消息 <-");
 
                     //更新发送状态为true
@@ -211,7 +242,7 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
             JSONObject jsonObject = JSON.parseObject(result);
             if (jsonObject.getInteger("code") == -80005) {
                 System.out.println("token失效");
-                if (!isNotice){
+                if (!isNotice) {
                     log.info("-> 没发过消息，发送消息 <-");
 
                     //更新发送状态为true
@@ -221,26 +252,26 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
                     sendMessage("Token已失效！");
                 }
                 return null;
-            } else if (jsonObject.getInteger("code") == 0){
+            } else if (jsonObject.getInteger("code") == 0) {
                 JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("online_state_infos");
-                if(jsonArray != null){
+                if (jsonArray != null) {
                     for (int i = 0; i < jsonArray.size(); i++) {
                         JSONObject status = jsonArray.getJSONObject(i);
                         String id = status.getString("friend_uid");
                         Integer state = status.getInteger("state");
-                        if (state == 1){
+                        if (state == 1) {
                             onlineList.add(id);
                         }
                     }
                 }
-            }else{
+            } else {
                 log.info("---> " + jsonObject.getString("msg"));
             }
 
-            if(queryMyStatus()){
+            if (queryMyStatus()) {
                 onlineList.add("215863828");
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
@@ -249,9 +280,10 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
 
     /**
      * 查询我的在线状态
+     *
      * @return
      */
-    private Boolean queryMyStatus(){
+    private Boolean queryMyStatus() {
         try {
             if (StrUtil.isBlank(TGP_TICKET)) {
                 System.out.println("未设置token");
@@ -276,21 +308,82 @@ public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolSe
                 return null;
             } else {
                 JSONObject online_status = jsonObject.getJSONObject("data").getJSONObject("online_status");
-                if (online_status == null){
+                if (online_status == null) {
                     return false;
                 }
                 Integer status = online_status.getInteger("status");
                 if (status == 0) {
                     return false;
-                } else if (status == 2){
+                } else if (status == 2) {
                     return true;
-                }else{
+                } else {
                     return false;
                 }
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+    /**
+     * 获取Steam好友的动态
+     *
+     * @return
+     */
+    public List<Steam> steamGetPlayerSummaries() {
+        List<Steam> resultList = new ArrayList<>();
+        try {
+            List<Steam> list = steamService.list();
+            String ids = "";
+            for (Steam s : list) {
+                ids += s.getAccountId() + ",";
+            }
+            //获取Steam相关配置
+            SystemConfig steamApiConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "getPlayerSummaries"));
+            String steamApi = steamApiConfig.getConfigValue();
+            SystemConfig steamKeyConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "steamKey"));
+            String steamKey = steamKeyConfig.getConfigValue();
+
+            String result = HttpUtil.createGet(steamApi)
+                    .form("key", steamKey)
+                    .form("steamids", ids)
+                    .execute().body();
+            JSONObject jsonObject = JSON.parseObject(result);
+            JSONObject response = jsonObject.getJSONObject("response");
+            if (response != null) {
+                JSONArray players = response.getJSONArray("players");
+                if (players != null) {
+                    for (int i = 0; i < players.size(); i++) {
+                        JSONObject player = players.getJSONObject(i);
+                        String steamId = player.getString("steamid");
+                        Integer personState = player.getInteger("personastate");
+                        String playerName = player.getString("personaname");
+                        Boolean onlineStatus = false;
+                        String gameExtraInfo = "";
+                        if (personState > 0) {
+                            onlineStatus = true;
+                            String gameId = player.getString("gameid");
+                            if (StrUtil.isNotBlank(gameId)) {
+                                gameExtraInfo = player.getString("gameextrainfo");
+                            }
+                        }
+                        //添加查询到的用户到返回的结果中
+                        resultList.add(
+                                Steam.builder()
+                                .accountId(steamId)
+                                .playingGame(gameExtraInfo)
+                                .playerName(playerName)
+                                .onlineStatus(onlineStatus)
+                                .build()
+                        );
+                    }
+                }
+            }
+            return resultList;
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
         }
     }
 }

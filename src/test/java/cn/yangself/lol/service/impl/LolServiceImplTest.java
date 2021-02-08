@@ -1,8 +1,10 @@
 package cn.yangself.lol.service.impl;
 
 import cn.yangself.lol.entity.Lol;
+import cn.yangself.lol.entity.Steam;
 import cn.yangself.lol.entity.SystemConfig;
 import cn.yangself.lol.service.ILolService;
+import cn.yangself.lol.service.ISteamService;
 import cn.yangself.lol.service.ISystemConfigService;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import org.junit.Test;
@@ -23,6 +25,9 @@ public class LolServiceImplTest {
     @Autowired
     private ISystemConfigService configService;
 
+    @Autowired
+    private ISteamService steamService;
+
     @Test
     public void lolServiceTest() {
         List<Lol> list = lolService.list();
@@ -36,5 +41,17 @@ public class LolServiceImplTest {
         }},new UpdateWrapper<SystemConfig>(new SystemConfig(){{
             setConfigKey("ENABLE");
         }}));
+    }
+
+    @Test
+    public void listTest() {
+        List<Steam> list = steamService.list();
+        System.out.println("list = " + list);
+    }
+
+    @Test
+    public void steamList() {
+        List<Steam> steams = lolService.steamGetPlayerSummaries();
+        System.out.println("steams = " + steams);
     }
 }
