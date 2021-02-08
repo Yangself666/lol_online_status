@@ -1,10 +1,12 @@
 package cn.yangself.lol.controller;
 
+import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.ReUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.yangself.lol.entity.SystemConfig;
 import cn.yangself.lol.service.ISystemConfigService;
 import cn.yangself.lol.service.ILolService;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -113,6 +115,34 @@ public class LolController {
         result.put("code", 200);
         result.put("msg", "请求成功！");
         result.put("result", "服务关闭成功！");
+        return result;
+    }
+
+    /**
+     * 接收消息处理
+     * @return
+     */
+    @PostMapping("/handle")
+    public Map<String,Object> handle(@RequestBody JSONObject body){
+        Map<String,Object> result = new HashMap<>();
+        System.out.println(body.toString());
+        String string = body.getJSONObject("text").getString("content");
+        String[] noContent = new String[]{"没有事情不要叫人家啦～","干什么玩愣，能不能说话！","没事别艾特我，忙奥！"};
+        String[] hasContent = new String[]{"哎，我在！","怎么啦，你说吧","没事别艾特我，忙奥！"};
+        Map<String,String> content = new HashMap<String,String>();
+        if (StrUtil.isBlank(string)){
+            int index = NumberUtil.generateRandomNumber(0, 3, 1)[0];
+            content.put("content", noContent[index]);
+        }else{
+            if("小诚小诚".equals(string)){
+                int index = NumberUtil.generateRandomNumber(0, 3, 1)[0];
+                content.put("content", hasContent[index]);
+            }else{
+                content.put("content", "别发了，发了老子也看不懂[二哈][二哈][二哈]");
+            }
+        }
+        result.put("msgtype", "text");
+        result.put("text",content);
         return result;
     }
 }
