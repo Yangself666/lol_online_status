@@ -4,11 +4,37 @@ server:
 spring:
   datasource:
     username: root
-    password: Yangself549_
-    url: jdbc:mysql://yangself.cn:10306/leigod_utils
+    password: Yangself549
+    url: jdbc:mysql://yangself.cn:10306/online_notice
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    spring.datasource.hikari.minimum-idle: 5
+    ## 空闲连接存活最大时间，默认600000（10分钟）
+    spring.datasource.hikari.idle-timeout: 1800000
+    ## 连接池最大连接数，默认是10
+    spring.datasource.hikari.maximum-pool-size: 10
+    ## 此属性控制从池返回的连接的默认自动提交行为,默认值：true
+    spring.datasource.hikari.auto-commit: true
+    ## 此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
+    spring.datasource.hikari.max-lifetime: 1800000
+    ## 数据库连接超时时间,默认30秒，即30000
+    spring.datasource.hikari.connection-timeout: 30000
+    spring.datasource.hikari.connection-test-query: SELECT 1
   thymeleaf:
     cache: false                   # 这个开发配置为false，避免改了模板还要重启服务器
     check-template-location: true  #检查模板位置，可不用配置
     encoding: utf-8                #编码字符集，默认为utf-8，可不用配置
     servlet:
       content-type: text/html
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+      #驼峰下划线转换
+      column-underline: true
+      db-type: mysql
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+
+mybatis:
+  type-aliases-package: cn.yangself.lol.entity

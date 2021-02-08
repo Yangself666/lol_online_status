@@ -1,18 +1,23 @@
 package cn.yangself.lol.service.impl;
 
-import cn.hutool.core.date.DateUnit;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpUtil;
-import cn.yangself.lol.service.IService;
+import cn.yangself.lol.entity.Lol;
+import cn.yangself.lol.entity.SystemConfig;
+import cn.yangself.lol.mapper.LolMapper;
+import cn.yangself.lol.service.ISystemConfigService;
+import cn.yangself.lol.service.ILolService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.net.HttpCookie;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,35 +26,23 @@ import java.util.Map;
 /**
  * @author yangself
  */
+
 @Service
-public class ServiceImpl implements IService {
-    private static final String WEGAME_STATUS_URL = "https://m.wegame.com.cn/api/mobile/lua/imsnssvr/get_game_friend_online_state";
-    private static final String MY_WEGAME_STATUS_URL = "https://m.wegame.com.cn/api/mobile/lua/user_center/get_user_center_header_info";
-    private static final String DING_TALK_URL = "https://oapi.dingtalk.com/robot/send?access_token=25bdbad112a8b8c9788aebf6b76dce33a9d4ca6b2fadaa69bbdbd21d35331f4c";
-    private static final String COOKIE_TEMPLATE = "tgp_ticket=${tgp_ticket}; channel_number=ios; skey=MiXhJzcQxO; machine_type=iPhone; client_type=602; platform=qq; account=3569762428; app_id=10001; mac=ADF0FD0D-8117-4540-9B3F-84B0AD133A36; app_version=51001; tgp_id=215863828";
+@Slf4j
+public class LolServiceImpl extends ServiceImpl<LolMapper,Lol> implements ILolService {
+
+    private String MY_WEGAME_STATUS_URL = "";
+    private String DING_TALK_URL = "";
+    private String WEGAME_STATUS_URL = "";
+    private String COOKIE_TEMPLATE = "tgp_ticket=${tgp_ticket}; channel_number=ios; skey=MiXhJzcQxO; machine_type=iPhone; client_type=602; platform=qq; account=3569762428; app_id=10001; mac=ADF0FD0D-8117-4540-9B3F-84B0AD133A36; app_version=51001; tgp_id=215863828";
     private String TGP_TICKET = "";
-    private Boolean isNotice = false;
-    private Boolean isTokenNotice = false;
-    private Boolean ENABLE = true;
 
-    @Override
-    public void setToken(String token) {
-        this.TGP_TICKET = token;
-    }
+    //配置项的service
+    private ISystemConfigService configService;
 
-    @Override
-    public void setNotice(Boolean notice) {
-        isNotice = notice;
-    }
-
-    @Override
-    public void setTokenNotice(Boolean tokenNotice) {
-        isTokenNotice = tokenNotice;
-    }
-
-    @Override
-    public void setEnable(Boolean enable) {
-        this.ENABLE = enable;
+    @Autowired
+    public void setConfigService(ISystemConfigService configService) {
+        this.configService = configService;
     }
 
     /**
@@ -89,33 +82,61 @@ public class ServiceImpl implements IService {
     @Scheduled(cron = "0 * * * * ?")
     @Override
     public void checkStatus() {
-        System.out.println(DateUtil.now() + " - 运行状态 -> " + ENABLE);
-        System.out.println("TGP_TICKET -> " + TGP_TICKET);
-        if(ENABLE) {
+        //系统状态
+        SystemConfig enableConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "ENABLE"));
+        Boolean enable = Boolean.parseBoolean(enableConfig.getConfigValue());
+
+        //WeGameToken获取
+        SystemConfig tokenConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "TGP_TICKET"));
+        this.TGP_TICKET = tokenConfig.getConfigValue();
+
+        //获取Cookie模板
+        SystemConfig cookieTemplateConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "COOKIE_TEMPLATE"));
+        this.COOKIE_TEMPLATE = cookieTemplateConfig.getConfigValue();
+
+        //获取Cookie模板
+        SystemConfig wegameUrlConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "WEGAME_STATUS_URL"));
+        this.WEGAME_STATUS_URL = wegameUrlConfig.getConfigValue();
+
+        //获取钉钉消息URL
+        SystemConfig dingTalkUrlConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "DING_TALK_URL"));
+        this.DING_TALK_URL = dingTalkUrlConfig.getConfigValue();
+
+        //获取钉钉消息URL
+        SystemConfig myWegameStatusUrlConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "MY_WEGAME_STATUS_URL"));
+        this.MY_WEGAME_STATUS_URL = myWegameStatusUrlConfig.getConfigValue();
+
+        log.info(DateUtil.now() + " - 运行状态 -> " + enable);
+        log.info("TGP_TICKET -> " + TGP_TICKET);
+
+        if(enable) {
+            //获取WeGame在线好友列表
             List<String> list = queryStatus();
+            List<Lol> gamers = this.list();
+
             if (list == null) {
-                for (Map<String, Object> map : gamers) {
+                for (Lol lol : gamers) {
                     //遍历需要检测的玩家
-                    if ((Boolean) map.get("isOnline")) {
-                        map.put("isOnline", false);
-                        String msg = (String)map.get("offlineMessage");
-                        sendMessage(msg);
+                    if (lol.getOnlineStatus()) {
+                        lol.setOnlineStatus(false);
+                        this.updateById(lol);
+                        sendMessage(lol.getOfflineMessage());
                     }
                 }
             } else {
-                for (Map<String, Object> map : gamers) {
-                    if (list.contains(map.get("id"))) {
+                for (Lol lol : gamers) {
+                    if (list.contains(String.valueOf(lol.getAccountId()))) {
                         //遍历需要检测的玩家
-                        if (!(Boolean) map.get("isOnline")) {
-                            map.put("isOnline", true);
-                            String msg = (String) map.get("onlineMessage");
-                            sendMessage(msg);
+                        if (!lol.getOnlineStatus()) {
+                            lol.setOnlineStatus(true);
+                            this.updateById(lol);
+                            sendMessage(lol.getOnlineMessage());
                         }
                     } else {
-                        if ((Boolean) map.get("isOnline")) {
-                            map.put("isOnline", false);
-                            String msg = (String) map.get("offlineMessage");
-                            sendMessage(msg);
+                        if (lol.getOnlineStatus()) {
+                            lol.setOnlineStatus(false);
+                            this.updateById(lol);
+                            sendMessage(lol.getOfflineMessage());
                         }
                     }
                 }
@@ -138,7 +159,7 @@ public class ServiceImpl implements IService {
 //        }else{
 //            System.out.println("消息发送成功！");
 //        }
-        System.out.println("消息发送成功！");
+        log.info("消息发送成功！");
     }
 
     /**
@@ -147,20 +168,36 @@ public class ServiceImpl implements IService {
      */
     private List<String> queryStatus(){
         List<String> onlineList = new ArrayList<>();
+
+        //获取是否提醒过
+        SystemConfig isNoticeConfig = configService.getOne(new LambdaQueryWrapper<SystemConfig>().eq(SystemConfig::getConfigKey, "isNotice"));
+        Boolean isNotice = Boolean.parseBoolean(isNoticeConfig.getConfigValue());
+
         try {
             if (StrUtil.isBlank(TGP_TICKET)) {
-                System.out.println("未设置token");
-                if (!this.isNotice){
-                    System.out.println("-> 没发过消息，发送消息 <-");
-                    this.isNotice = true;
+                log.warn("未设置token");
+                //如果没有提醒过
+                if (!isNotice){
+                    log.info("-> 没发过消息，发送消息 <-");
+
+                    //更新发送状态为true
+                    isNoticeConfig.setConfigValue("true");
+                    configService.updateById(isNoticeConfig);
+
+                    //发送钉钉消息
                     sendMessage("Token未设置！");
                 }
                 return null;
             }
+
             String cookie = COOKIE_TEMPLATE.replace("${tgp_ticket}", TGP_TICKET);
 
+            //扭曲丛林
             // String data1 = "{\"user_id\":\"215863828\",\"game_id\":26,\"area_id\":20}";
+            //德玛西亚
             String data = "{\"user_id\":\"215863828\",\"game_id\":26,\"area_id\":6}";
+
+            //开始请求
             String result = HttpUtil.createPost(WEGAME_STATUS_URL)
                     .contentType("application/json")
                     .header("Cookie", cookie)
@@ -169,13 +206,18 @@ public class ServiceImpl implements IService {
                     .body(data)
                     .execute()
                     .body();
-            System.out.println("result = " + result);
+            log.info("获取好友状态请求结果 -> " + result);
+
             JSONObject jsonObject = JSON.parseObject(result);
             if (jsonObject.getInteger("code") == -80005) {
                 System.out.println("token失效");
-                if (!this.isNotice){
-                    System.out.println("-> 没发过消息，发送消息 <-");
-                    this.isNotice = true;
+                if (!isNotice){
+                    log.info("-> 没发过消息，发送消息 <-");
+
+                    //更新发送状态为true
+                    isNoticeConfig.setConfigValue("true");
+                    configService.updateById(isNoticeConfig);
+
                     sendMessage("Token已失效！");
                 }
                 return null;
@@ -192,7 +234,7 @@ public class ServiceImpl implements IService {
                     }
                 }
             }else{
-                System.out.println("---> " + jsonObject.getString("msg"));
+                log.info("---> " + jsonObject.getString("msg"));
             }
 
             if(queryMyStatus()){
@@ -227,7 +269,7 @@ public class ServiceImpl implements IService {
                     .body(data)
                     .execute()
                     .body();
-            System.out.println("result = " + result);
+            log.info("查询自己的在线状态结果 -> " + result);
             JSONObject jsonObject = JSON.parseObject(result);
             if (jsonObject.getInteger("code") != 0) {
                 System.out.println(jsonObject.getString("msg"));
