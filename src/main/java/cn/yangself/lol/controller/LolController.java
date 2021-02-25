@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.yangself.lol.entity.SystemConfig;
 import cn.yangself.lol.service.ISystemConfigService;
 import cn.yangself.lol.service.ILolService;
+import cn.yangself.lol.service.IWeightLogService;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class LolController {
     private ISystemConfigService configService;
     private ILolService lolService;
+    private IWeightLogService weightLogService;
 
     @Autowired
     public void setConfigService(ISystemConfigService configService) {
@@ -37,6 +39,12 @@ public class LolController {
     public void setLolService(ILolService lolService) {
         this.lolService = lolService;
     }
+
+    @Autowired
+    public void setWeightLogService(IWeightLogService weightLogService) {
+        this.weightLogService = weightLogService;
+    }
+
 
     @PostMapping("/editToken")
     public Map<String,Object> login(@RequestBody Map<String,String> sendMap){
@@ -134,10 +142,17 @@ public class LolController {
             int index = NumberUtil.generateRandomNumber(0, 3, 1)[0];
             content.put("content", noContent[index]);
         }else{
-            if("小诚小诚".equals(string)){
+            if("小诚小诚".equals(string.trim())){
                 int index = NumberUtil.generateRandomNumber(0, 3, 1)[0];
                 content.put("content", hasContent[index]);
-            }else{
+            }else if(string.indexOf("打卡") > -1){
+                //如果艾特消息里包含 打卡 两个字
+                if("韩嘉旺".equals(body.getString("senderNick").trim())){
+                    //如果是韩嘉旺发的，进行处理
+                    String handleResult = weightLogService.messageHandle(string);
+                    content.put("content", handleResult);
+                }
+            } else{
                 content.put("content", "别发了，发了老子也看不懂[二哈][二哈][二哈]");
             }
         }
