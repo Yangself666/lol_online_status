@@ -141,7 +141,7 @@ public class WeightLogServiceImpl extends ServiceImpl<WeightLogMapper, WeightLog
             DateTime yesterday = DateUtil.yesterday();
             WeightLog yesterdayData = this.getOne(new QueryWrapper<WeightLog>().lambda().between(WeightLog::getUpdateTime, DateUtil.beginOfDay(yesterday), DateUtil.endOfDay(yesterday)), false);
 
-            sb.append("累计减重" + (today.getWeightValue().subtract(firstDay.getWeightValue())) + "KG，昨日减重" + (today.getWeightValue().subtract(yesterdayData.getWeightValue())) + "KG。\n\n");
+            sb.append("累计减重" + (firstDay.getWeightValue().subtract(today.getWeightValue())) + "KG，昨日减重" + (yesterdayData.getWeightValue().subtract(today.getWeightValue())) + "KG。\n\n");
         }
         sb.append("近五天减重记录表\n");
         Page<WeightLog> page = this.page(new Page<WeightLog>(1, 6), new QueryWrapper<WeightLog>().orderByDesc("update_time"));
