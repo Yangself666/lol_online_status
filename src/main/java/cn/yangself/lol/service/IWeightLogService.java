@@ -10,4 +10,10 @@ public interface IWeightLogService extends IService<WeightLog> {
      * @param content
      */
     String messageHandle(String content);
+
+    /**
+     * 体重统计信息
+     * @return
+     */
+    String weightStatistics();
 }

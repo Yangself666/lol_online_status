@@ -151,6 +151,8 @@ public class LolController {
                     //如果是韩嘉旺发的，进行处理
                     String handleResult = weightLogService.messageHandle(string);
                     content.put("content", handleResult);
+                }else{
+                    content.put("content", "你当你是谁啊？说打卡就给你打卡？");
                 }
             } else{
                 content.put("content", "别发了，发了老子也看不懂[二哈][二哈][二哈]");
