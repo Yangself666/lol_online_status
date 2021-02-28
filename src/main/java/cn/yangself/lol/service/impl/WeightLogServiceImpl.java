@@ -131,7 +131,7 @@ public class WeightLogServiceImpl extends ServiceImpl<WeightLogMapper, WeightLog
         // 减肥第一天的数据
         WeightLog firstDay = this.getOne(new QueryWrapper<WeightLog>().lambda().orderByAsc(WeightLog::getUpdateTime), false);
         //计算相差的天数
-        long between = DateUtil.between(firstDay.getUpdateTime(), todayDate, DateUnit.DAY);
+        long between = DateUtil.betweenDay(firstDay.getUpdateTime(), todayDate, true);
         sb.append("今日减脂第" + (between + 1) + "天！\n");
         // 查询今天的数据
         WeightLog today = this.getOne(new QueryWrapper<WeightLog>().lambda().between(WeightLog::getUpdateTime, DateUtil.beginOfDay(todayDate), DateUtil.endOfDay(todayDate)), false);

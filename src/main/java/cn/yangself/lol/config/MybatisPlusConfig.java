@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
  * mybatisplus 分页插件
  */
 @Configuration
-@MapperScan("com.baomidou.cloud.service.*.mapper*")
+@MapperScan("cn.yangself.lol.mapper")
 public class MybatisPlusConfig {
 
     // 最新版
