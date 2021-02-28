@@ -24,7 +24,8 @@ public class WeightLogServiceImplTest {
 
     @Test
     public void testWeightStatistics() {
-        weightLogService.weightStatistics();
+        String statistics = weightLogService.weightStatistics();
+        System.out.println("statistics = " + statistics);
     }
     
     @Test
